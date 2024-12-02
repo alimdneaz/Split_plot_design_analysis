@@ -1,0 +1,570 @@
+---
+title: "BARI_split_plot_desig"
+author: "MD. NEAZ ALI"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Import Libraries
+```{r}
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(ggplot2)
+library(agricolae)
+library(dplyr)
+```
+
+# Import Data
+```{r}
+# Data Import
+df <- read.csv("./split_plot.csv", header = T)
+head(df)
+```
+```{r}
+cat("Dimension of the dataframe",dim(df))
+cat("Str: ", str(df))
+```
+
+## Data Cleanings
+
+```{r}
+df$Rep <- as.factor(df$Rep)
+df$Tillage <- as.factor(df$Tillage)
+df$Organic_Manure <- as.factor(df$Organic_Manure)
+table(df$Rep)
+```
+
+```{r}
+table(df$Tillage)
+```
+```{r}
+table(df$Organic_Manure)
+```
+# Group mean and sd
+
+```{r}
+df_summary <- df %>%
+  group_by(Tillage) %>%
+  summarise(
+    Mean = mean(Yield, na.rm = TRUE),
+    SD = sd(Yield, na.rm = TRUE),
+    MAX = max(Yield, na.rm = TRUE),
+    Min = min(Yield, na.rm = TRUE)
+  )
+
+# Print the summary
+print(df_summary)
+```
+```{r}
+# Create the aesthetic bar plot with error bars
+ggplot(df_summary, aes(x = Tillage, y = Mean, fill = Tillage)) +
+  geom_bar(stat = "identity", position = "dodge", show.legend = FALSE) +  # Create bars
+  geom_errorbar(aes(ymin = Mean - SD, ymax = Mean + SD), width = 0.2) +  # Add error bars
+  labs(
+    title = "Group Means with Standard Deviation",
+    x = "Group",
+    y = "Mean Yield",
+    caption = "Error bars represent standard deviation"
+  ) +
+  theme_minimal() +  # Use minimal theme
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for clarity
+    text = element_text(size = 14)  # Increase text size for better readability
+  )
+```
+```{r}
+df_summary_rep <- df %>%
+  group_by(Rep) %>%
+  summarise(
+    Mean = mean(Yield, na.rm = TRUE),
+    SD = sd(Yield, na.rm = TRUE),
+    MAX = max(Yield, na.rm = TRUE),
+    MIN = min(Yield, na.rm = TRUE)
+  )
+
+# Print the summary
+print(df_summary_rep)
+```
+```{r}
+# Create the aesthetic bar plot with error bars
+ggplot(df_summary_rep, aes(x = Rep, y = Mean, fill = Rep)) +
+  geom_bar(stat = "identity", position = "dodge", show.legend = FALSE) +  # Create bars
+  geom_errorbar(aes(ymin = Mean - SD, ymax = Mean + SD), width = 0.2) +  # Add error bars
+  labs(
+    title = "Group Means with Standard Deviation",
+    x = "Group",
+    y = "Mean Yield",
+    caption = "Error bars represent standard deviation"
+  ) +
+  theme_minimal() +  # Use minimal theme
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for clarity
+    text = element_text(size = 14)  # Increase text size for better readability
+  )
+```
+
+```{r}
+df_summary_manure <- df %>%
+  group_by(Organic_Manure) %>%
+  summarise(
+    Mean = mean(Yield, na.rm = TRUE),
+    SD = sd(Yield, na.rm = TRUE),
+    MAX = max(Yield, na.rm = TRUE),
+    MIN = min(Yield, na.rm = TRUE)
+  )
+
+# Print the summary
+print(df_summary_manure)
+```
+
+```{r}
+# Create the aesthetic bar plot with error bars
+ggplot(df_summary_manure, aes(x = Organic_Manure, y = Mean, fill = Organic_Manure)) +
+  geom_bar(stat = "identity", position = "dodge", show.legend = FALSE) +  # Create bars
+  geom_errorbar(aes(ymin = Mean - SD, ymax = Mean + SD), width = 0.2) +  # Add error bars
+  labs(
+    title = "Group Means with Standard Deviation",
+    x = "Group",
+    y = "Mean Yield",
+    caption = "Error bars represent standard deviation"
+  ) +
+  theme_minimal() +  # Use minimal theme
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for clarity
+    text = element_text(size = 14)  # Increase text size for better readability
+  )
+```
+
+# ANOVA
+```{r}
+model <- aov(Yield ~ Tillage * Organic_Manure + Error(Rep/Tillage), data = df)
+summary(model)
+```
+
+# Post Hoc Tests
+
+### DNRMT Test
+```{r}
+model2 <- aov(Yield~Tillage+Organic_Manure+Rep, data = df)
+duncan_result <- duncan.test(model2, "Organic_Manure", group = TRUE)
+
+# Print the results
+print(duncan_result)
+```
+### LSD Test
+```{r}
+# model2 <- aov(Yield~Tillage+Organic_Manure+Rep, data = df)
+lsd_result <- LSD.test(model2, "Organic_Manure", group = TRUE)
+
+# Print the results
+print(lsd_result)
+```
+
+### HSD Test
+```{r}
+hsd_result <- HSD.test(model2, "Organic_Manure", group = TRUE)
+
+# Print the results
+print(hsd_result)
+```
+
+
+# Model Diagnostics
+
+### Boxplot of residuals
+```{r}
+residuals_data <- residuals(model2)
+
+# Create a data frame for ggplot
+residuals_df <- data.frame(residuals = residuals_data)
+
+# Plotting the boxplot using ggplot
+ggplot(residuals_df, aes(x = 1, y = residuals)) +
+  geom_boxplot(fill = "green", color = "black", outlier.colour = "red", outlier.size = 3) +
+  labs(title = "Boxplot of Residuals", x = "Residuals", y = "Value") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),  # Hide x-axis label (since we have only one category)
+        axis.ticks.x = element_blank())  # Hide x-axis ticks
+```
+
+
+### Shapiro -Wilks Test
+```{r}
+residuals <- residuals(model2)
+
+# Q-Q plot
+qqnorm(residuals)
+qqline(residuals, col = "red")
+
+# Shapiro-Wilk test for normality
+shapiro.test(residuals)
+```
+
+
+# Fit the Mixed-Effect Model
+
+```{r}
+model <- lmer(Yield ~ Tillage + Organic_Manure + Tillage * Organic_Manure + (1 | Rep), data = df)# Rep is random
+summary(model)
+```
+```{r}
+anova(model)
+```
+
+# Post_Hoc Tests
+```{r}
+emm_tillage <- emmeans(model, ~ Tillage)
+emm_manure <- emmeans(model, ~ Organic_Manure)
+emm_interaction <- emmeans(model, ~ Tillage * Organic_Manure)
+```
+
+```{r}
+print(summary(emm_tillage))
+print(summary(emm_manure))
+print(summary(emm_interaction))
+```
+
+# Pairwise
+```{r}
+pairs(emm_tillage)
+```
+```{r}
+pairs(emm_manure)
+```
+
+```{r}
+pairs(emm_interaction)
+```
+
+
+# Visualize Results
+
+```{r}
+ggplot(df, aes(x = Tillage, y = Yield, fill = Organic_Manure)) +
+  geom_boxplot() +
+  labs(title = "Interaction between Tillage and Organic Manure on Yield") +
+  theme_minimal()
+```
+
+# Diagnostic
+
+## Residual Plot
+
+### Residuals vs Fitted Plot
+```{r}
+residuals_model  <- residuals(model)
+summary(residuals_model)
+```
+
+```{r}
+# Extract residuals and fitted values
+fitted_values <- fitted(model)
+residuals_values <- residuals(model)
+
+# Create the ggplot
+ggplot(data.frame(Fitted = fitted_values, Residuals = residuals_values), aes(x = Fitted, y = Residuals)) +
+  geom_point(color = "blue", alpha = 0.7) + 
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  labs(title = "Residuals vs Fitted", x = "Fitted Values", y = "Residuals") +
+  theme_minimal()
+```
+
+## Influential Points
+```{r}
+# Check for Cook's distance
+cooks_d <- cooks.distance(model)
+plot(cooks_d, main = "Cook's Distance", ylab = "Cook's Distance")
+abline(h = 4 / length(cooks_d), col = "red")  # Threshold for influential points
+```
+```{r}
+library(car)
+vif(model)
+```
+
+## Q-Q Plot
+
+```{r}
+ggplot(data.frame(Residuals = residuals_values), aes(sample = Residuals)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "Normal Q-Q Plot") +
+  theme_minimal()
+```
+
+## Scale - Location Plot
+
+None
+
+
+## Cooks Distance Plot
+```{r}
+# Calculate Cook's Distance
+cooks_distance <- cooks.distance(model)
+
+# Create a Cook's distance plot
+ggplot(data.frame(Index = seq_along(cooks_distance), CooksDistance = cooks_distance), aes(x = Index, y = CooksDistance)) +
+  geom_bar(stat = "identity", fill = "steelblue", alpha = 0.7) +
+  geom_hline(yintercept = 4 / length(cooks_distance), color = "red", linetype = "dashed") +
+  labs(title = "Cook's Distance", x = "Index", y = "Cook's Distance") +
+  theme_minimal()
+```
+
+## Autocorrelation of Residuals (ACF Plot)
+```{r}
+# Plot the autocorrelation of residuals
+acf(residuals(model), main = "Autocorrelation of Residuals", col = "blue", lwd = 2)
+```
+## Fitted Values vs Observed Values
+
+```{r}
+# Create a fitted vs observed plot
+ggplot(data.frame(Observed = df$Yield, Fitted = fitted_values), aes(x = Observed, y = Fitted)) +
+  geom_point(color = "blue", alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  labs(title = "Fitted vs Observed", x = "Observed Values", y = "Fitted Values") +
+  theme_minimal()
+
+```
+
+```{r}
+# rstandard(model) # Not Running
+```
+
+
+```{r}
+library(gridExtra)
+
+fitted_values <- fitted(model)
+residual_sd <- sd(residuals_model)
+std_residuals <- residuals_model/residual_sd
+
+# Create individual plots
+p1 <- ggplot(data.frame(Fitted = fitted_values, Residuals = residuals_values), aes(x = Fitted, y = Residuals)) +
+  geom_point(color = "blue", alpha = 0.7) + 
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  labs(title = "Residuals vs Fitted", x = "Fitted Values", y = "Residuals") +
+  theme_minimal()
+
+p2 <- ggplot(data.frame(Fitted = fitted_values, StdResiduals = std_residuals), aes(x = Fitted, y = StdResiduals)) +
+  geom_point(color = "blue", alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  labs(title = "Scale-Location (Standardized Residuals vs Fitted)", x = "Fitted Values", y = "Standardized Residuals") +
+  theme_minimal()
+
+p3 <- ggplot(data.frame(Fitted = fitted_values, StdResiduals = std_residuals), aes(x = Fitted, y = StdResiduals)) +
+  geom_point(color = "blue", alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  labs(title = "Scale-Location", x = "Fitted Values", y = "Standardized Residuals") +
+  theme_minimal()
+
+p4 <- ggplot(data.frame(Index = seq_along(cooks_distance), CooksDistance = cooks_distance), aes(x = Index, y = CooksDistance)) +
+  geom_bar(stat = "identity", fill = "steelblue", alpha = 0.7) +
+  geom_hline(yintercept = 4 / length(cooks_distance), color = "red", linetype = "dashed") +
+  labs(title = "Cook's Distance", x = "Index", y = "Cook's Distance") +
+  theme_minimal()
+
+# Combine all plots into a grid
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+
+##  Basic Boxplot (Yield by Tillage and Manure)
+
+None
+
+## 2. Boxplot with Facets (by Replications)
+
+```{r}
+# Check the unique levels of Organic_Manure
+unique_manure_levels <- levels(df$Organic_Manure)
+
+# Define the number of colors needed based on the levels
+n_levels <- length(unique_manure_levels)
+color_palette <- c("lightblue", "lightgreen", "lightpink", "lightyellow")  # Adjust colors if needed
+
+# Generate the plot with adjusted color palette
+ggplot(df, aes(x = Tillage, y = Yield, fill = Organic_Manure)) +
+  geom_boxplot() +
+  facet_wrap(~ Rep, scales = "free_y") +  # Separate boxplots for each Replication
+  labs(title = "Boxplot of Yield by Tillage, Manure, and Replication", x = "Tillage", y = "Yield") +
+  scale_fill_manual(values = color_palette[1:n_levels]) +  # Use the correct number of colors
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+```{r}
+ggplot(df, aes(x = Tillage, y = Yield, fill = Tillage)) +
+  geom_boxplot(outlier.shape = 16, outlier.size = 2, outlier.colour = "red") +  # Customize outliers
+  scale_fill_brewer(palette = "Set3") +  # Use a color palette for the box fill
+  labs(title = "Boxplot of Yield by Tillage", 
+       x = "Tillage", 
+       y = "Yield") +
+  theme_minimal() +  # Clean minimal theme
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Center and bold title
+    axis.title = element_text(size = 14),  # Axis title size
+    axis.text = element_text(size = 12),  # Axis text size
+    legend.position = "none"  # Remove legend
+  )
+```
+```{r}
+# Aesthetic Boxplot of Yield by Organic_Manure
+ggplot(df, aes(x = Organic_Manure, y = Yield, fill = Organic_Manure)) +
+  geom_boxplot(outlier.shape = 16, outlier.size = 2, outlier.colour = "red") +  # Customize outliers
+  scale_fill_brewer(palette = "Pastel1") +  # Use a light, pastel color palette
+  labs(title = "Boxplot of Yield by Organic Manure", 
+       x = "Organic Manure", 
+       y = "Yield") +
+  theme_minimal() +  # Clean minimal theme
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Center and bold title
+    axis.title = element_text(size = 14),  # Axis title size
+    axis.text = element_text(size = 12),  # Axis text size
+    legend.position = "none"  # Remove legend
+  )
+```
+```{r}
+# Aesthetic Boxplot of Yield by Tillage and Organic Manure
+ggplot(df, aes(x = interaction(Tillage, Organic_Manure), y = Yield, fill = interaction(Tillage, Organic_Manure))) +
+  geom_boxplot(outlier.shape = 16, outlier.size = 2, outlier.colour = "red") +  # Customize outliers
+  scale_fill_brewer(palette = "Set3") +  # Use a color palette for the interaction levels
+  labs(title = "Boxplot of Yield by Tillage and Organic Manure", 
+       x = "Tillage and Organic Manure", 
+       y = "Yield") +
+  theme_minimal() +  # Clean minimal theme
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Center and bold title
+    axis.title = element_text(size = 14),  # Axis title size
+    axis.text = element_text(size = 12),  # Axis text size
+    legend.position = "none"  # Remove legend
+  )
+```
+```{r}
+# Aesthetic Boxplot of Yield by Replication (Rep)
+ggplot(df, aes(x = Rep, y = Yield, fill = Rep)) +
+  geom_boxplot(outlier.shape = 16, outlier.size = 2, outlier.colour = "red") +  # Customize outliers
+  scale_fill_brewer(palette = "Set1") +  # Use a color palette for Replication groups
+  labs(title = "Boxplot of Yield by Replication", 
+       x = "Replication", 
+       y = "Yield") +
+  theme_minimal() +  # Clean minimal theme
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Center and bold title
+    axis.title = element_text(size = 14),  # Axis title size
+    axis.text = element_text(size = 12),  # Axis text size
+    legend.position = "none"  # Remove legend
+  )
+```
+```{r}
+# Aesthetic Boxplot of Yield by Rep and Tillage
+ggplot(df, aes(x = interaction(Rep, Tillage), y = Yield, fill = interaction(Rep, Tillage))) +
+  geom_boxplot(outlier.shape = 16, outlier.size = 2, outlier.colour = "red") +  # Customize outliers
+  scale_fill_brewer(palette = "Set3") +  # Use a color palette for the interaction levels
+  labs(title = "Boxplot of Yield by Replication and Tillage", 
+       x = "Replication and Tillage", 
+       y = "Yield") +
+  theme_minimal() +  # Clean minimal theme
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Center and bold title
+    axis.title = element_text(size = 14),  # Axis title size
+    axis.text = element_text(size = 12),  # Axis text size
+    legend.position = "none"  # Remove legend
+  )
+```
+```{r}
+# Aesthetic Boxplot of Yield by Rep and Organic Manure
+ggplot(df, aes(x = interaction(Rep, Organic_Manure), y = Yield, fill = interaction(Rep, Organic_Manure))) +
+  geom_boxplot(outlier.shape = 16, outlier.size = 2, outlier.colour = "red") +  # Customize outliers
+  scale_fill_brewer(palette = "Set3") +  # Use a color palette for the interaction levels
+  labs(title = "Boxplot of Yield by Replication and Organic Manure", 
+       x = "Replication and Organic Manure", 
+       y = "Yield") +
+  theme_minimal() +  # Clean minimal theme
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Center and bold title
+    axis.title = element_text(size = 14),  # Axis title size
+    axis.text = element_text(size = 12),  # Axis text size
+    legend.position = "none"  # Remove legend
+  )
+```
+
+# Histograms
+
+## Basic Density Curve
+```{r}
+ggplot(df, aes(x = Yield)) +
+  geom_histogram(aes(y = ..density..), 
+                 bins = 30, 
+                 fill = "green", 
+                 color = "black", 
+                 alpha = 0.7) +  # Adjust histogram transparency
+  geom_density(color = "black", size = 1.2) +  # Overlay density curve
+  labs(title = "Histogram with Density Curve for Yield", 
+       x = "Yield", 
+       y = "Density") +
+  theme_minimal() + 
+  theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))  # Title customization
+```
+## Histogram with Density Curve for Yield by Tillage:
+```{r}
+ggplot(df, aes(x = Yield, fill = Tillage)) +
+  geom_histogram(aes(y = ..density..), 
+                 bins = 30, 
+                 color = "black", 
+                 alpha = 0.6) +
+  geom_density(aes(color = Tillage), size = 1.2) +  # Separate density curves by Tillage
+  labs(title = "Histogram with Density Curve by Tillage", 
+       x = "Yield", 
+       y = "Density") +
+  theme_minimal() + 
+  theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
+
+```
+## Histogram with Density Curve for Yield by Organic Manure:
+```{r}
+ggplot(df, aes(x = Yield, fill = Organic_Manure)) +
+  geom_histogram(aes(y = ..density..), 
+                 bins = 30, 
+                 color = "black", 
+                 alpha = 0.6) +
+  geom_density(aes(color = Organic_Manure), size = 1.2) +  # Separate density curves by Organic Manure
+  labs(title = "Histogram with Density Curve by Organic Manure", 
+       x = "Yield", 
+       y = "Density") +
+  theme_minimal() + 
+  theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
+```
+## Histogram with Density Curve for Yield by Replication:
+```{r}
+ggplot(df, aes(x = Yield, fill = Rep)) +
+  geom_histogram(aes(y = ..density..), 
+                 bins = 30, 
+                 color = "black", 
+                 alpha = 0.6) +
+  geom_density(aes(color = Rep), size = 1.2) +  # Separate density curves by Replication
+  labs(title = "Histogram with Density Curve by Replication", 
+       x = "Yield", 
+       y = "Density") +
+  theme_minimal() + 
+  theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
+```
+## Facet Grid Histogram with Density Curve for Yield by Tillage and Organic Manure:
+```{r}
+ggplot(df, aes(x = Yield, fill = Tillage)) +
+  geom_histogram(aes(y = ..density..), 
+                 bins = 30, 
+                 color = "black", 
+                 alpha = 0.6) +
+  geom_density(aes(color = Tillage), size = 1.2) +  # Separate density curves by Tillage
+  facet_wrap(~ Organic_Manure) +  # Facet by Organic Manure
+  labs(title = "Histogram with Density Curve by Tillage and Organic Manure", 
+       x = "Yield", 
+       y = "Density") +
+  theme_minimal() + 
+  theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5))
+```
+
