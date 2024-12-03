@@ -148,7 +148,7 @@ summary(model)
 
 # Post Hoc Tests
 
-### DNRMT Test
+### DMRMT Test
 ```{r}
 model2 <- aov(Yield~Tillage+Organic_Manure+Rep, data = df)
 duncan_result <- duncan.test(model2, "Organic_Manure", group = TRUE)
@@ -172,6 +172,8 @@ hsd_result <- HSD.test(model2, "Organic_Manure", group = TRUE)
 # Print the results
 print(hsd_result)
 ```
+
+
 
 
 # Model Diagnostics
